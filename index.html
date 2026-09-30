@@ -181,6 +181,18 @@ textarea{resize:vertical; min-height:64px}
 .weigh input{max-width:140px}
 .pace-line{margin-top:10px; font-size:.95rem}
 .w-dot{fill:var(--ink)} .w-plan{stroke:var(--pro)}
+.who-btn{width:34px; height:34px; border-radius:50%; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-weight:800; font-family:var(--display); font-size:.9rem; display:grid; place-items:center; padding:0}
+.who-btn:hover{border-color:var(--ring)}
+.who{position:fixed; inset:0; z-index:50; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:24px; padding-top:calc(24px + env(safe-area-inset-top,0px)); padding-bottom:calc(24px + env(safe-area-inset-bottom,0px)); overflow-y:auto}
+.who-inner{width:100%; max-width:380px}
+.who-title{font-family:var(--display); font-weight:700; font-size:1.5rem; text-align:center; margin:18px 0 22px}
+.who-list{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px}
+.who-card{position:relative; background:var(--surface); border:1px solid var(--line); border-radius:20px; padding:22px 12px 16px; display:flex; flex-direction:column; align-items:center; gap:10px; color:var(--ink); font-weight:700; font-size:1.05rem}
+.who-card:hover{border-color:var(--ring); box-shadow:0 0 18px color-mix(in srgb, var(--ring) 30%, transparent)}
+.who-av{width:64px; height:64px; border-radius:50%; display:grid; place-items:center; font-family:var(--display); font-weight:800; font-size:1.6rem; color:var(--bg)}
+.who-card .rm, .who-card .rn{position:absolute; top:8px; background:none; border:0; color:var(--muted); font-size:.8rem; text-decoration:underline; padding:2px 4px}
+.who-card .rm{right:8px} .who-card .rn{left:8px}
+.who-add{display:flex; gap:8px; margin-top:14px}
 .sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 @media (max-width:400px){ .grid3{grid-template-columns:1fr 1fr} .plan .nums b{font-size:1.3rem} }
 @media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important} }
@@ -251,7 +263,7 @@ textarea:focus, input:focus, select:focus{outline:none; border-color:var(--ring)
 <body>
 <div class="wrap">
   <header>
-    <div class="brand">Plate</div>
+    <div style="display:flex;align-items:center;gap:10px"><div class="brand">Plate</div><button class="who-btn" id="whoBtn" aria-label="Switch person"></button></div>
     <div class="datebar" id="datebar">
       <button class="iconbtn" id="prev" aria-label="Previous day"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg></button>
       <div class="date" id="date" aria-live="polite">Today</div>
@@ -432,6 +444,21 @@ textarea:focus, input:focus, select:focus{outline:none; border-color:var(--ring)
   </section>
 </div>
 
+<div class="who" id="who" hidden>
+  <div class="who-inner">
+    <div class="brand" style="text-align:center">Plate</div>
+    <h2 class="who-title">Who's logging?</h2>
+    <div class="who-list" id="whoList"></div>
+    <div class="who-add" id="whoAddRow" hidden>
+      <input type="text" id="whoName" placeholder="Name" maxlength="20" aria-label="Name">
+      <button class="btn sm" id="whoSave">Add</button>
+    </div>
+    <div class="row" style="justify-content:center">
+      <button class="btn ghost sm" id="whoAdd">Add person</button>
+      <button class="btn ghost sm" id="whoEdit">Edit</button>
+    </div>
+  </div>
+</div>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
@@ -443,9 +470,10 @@ textarea:focus, input:focus, select:focus{outline:none; border-color:var(--ring)
 
   // ---------- storage ----------
   let canImages = true;
+  let PID = null;
   const local = {
-    get(k){ try { const v = localStorage.getItem("plate:" + k); return v ? JSON.parse(v) : null; } catch { return null; } },
-    set(k, v){ try { localStorage.setItem("plate:" + k, JSON.stringify(v)); } catch {} }
+    get(k){ try { const v = localStorage.getItem("plate:" + PID + ":" + k); return v ? JSON.parse(v) : null; } catch { return null; } },
+    set(k, v){ try { localStorage.setItem("plate:" + PID + ":" + k, JSON.stringify(v)); } catch {} }
   };
   async function load(key){ return local.get(key); }
   async function save(key, val){
@@ -1038,17 +1066,81 @@ textarea:focus, input:focus, select:focus{outline:none; border-color:var(--ring)
     } catch { $("setMsg").textContent = "That file isn't a Plate backup."; }
   };
 
-  // ---------- boot ----------
-  renderToday();
-  (async () => {
+  // ---------- profiles ----------
+  const COLORS = ["#27E8FF", "#FF4FD8", "#B8FF3C", "#FFB23C", "#9D7BFF", "#FF5A5A"];
+  const getProfiles = () => { try { return JSON.parse(localStorage.getItem("plate-profiles") || "[]"); } catch { return []; } };
+  const setProfiles = list => { try { localStorage.setItem("plate-profiles", JSON.stringify(list)); } catch {} };
+  const newId = () => "p" + Math.random().toString(36).slice(2, 8);
+
+  // one-time move of data saved before profiles existed
+  (function migrate(){
+    try {
+      if (localStorage.getItem("plate-profiles")) return;
+      const old = [];
+      for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith("plate:")) old.push(k); }
+      if (!old.length) { setProfiles([]); return; }
+      const id = "p1";
+      old.forEach(k => { localStorage.setItem("plate:" + id + ":" + k.slice(6), localStorage.getItem(k)); localStorage.removeItem(k); });
+      setProfiles([{ id, name: "Me", color: COLORS[0] }]);
+    } catch {}
+  })();
+
+  let editing = false;
+  function renderWho(){
+    const list = getProfiles(), box = $("whoList"); box.textContent = "";
+    list.forEach(pf => {
+      const card = el("button", "who-card");
+      const av = el("span", "who-av", (pf.name || "?").trim().charAt(0).toUpperCase()); av.style.background = pf.color;
+      av.style.boxShadow = "0 0 22px " + pf.color + "88";
+      card.append(av, el("span", null, pf.name));
+      card.onclick = () => { if (!editing) startProfile(pf.id); };
+      if (editing) {
+        const rn = el("button", "rn", "Rename"); rn.onclick = e => { e.stopPropagation(); const n = prompt("New name", pf.name); if (n && n.trim()) { pf.name = n.trim().slice(0,20); setProfiles(list); renderWho(); } };
+        const rm = el("button", "rm", "Remove"); rm.onclick = e => { e.stopPropagation();
+          if (!confirm("Remove " + pf.name + " and all of their logs? This can't be undone.")) return;
+          const keys = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith("plate:" + pf.id + ":")) keys.push(k); }
+          keys.forEach(k => localStorage.removeItem(k)); setProfiles(list.filter(x => x.id !== pf.id)); renderWho(); };
+        card.append(rn, rm);
+      }
+      box.append(card);
+    });
+    if (!list.length) { $("whoAddRow").hidden = false; $("whoName").focus(); }
+    $("whoEdit").hidden = !list.length; $("whoEdit").textContent = editing ? "Done" : "Edit";
+  }
+  function openWho(){ editing = false; $("whoAddRow").hidden = true; closeSheet(); renderWho(); $("who").hidden = false; }
+  $("whoAdd").onclick = () => { $("whoAddRow").hidden = false; $("whoName").value = ""; $("whoName").focus(); };
+  $("whoEdit").onclick = () => { editing = !editing; renderWho(); };
+  const addPerson = () => {
+    const n = $("whoName").value.trim(); if (!n) { $("whoName").focus(); return; }
+    const list = getProfiles(); const pf = { id: newId(), name: n.slice(0,20), color: COLORS[list.length % COLORS.length] };
+    list.push(pf); setProfiles(list); $("whoAddRow").hidden = true; startProfile(pf.id);
+  };
+  $("whoSave").onclick = addPerson;
+  $("whoName").addEventListener("keydown", e => { if (e.key === "Enter") addPerson(); });
+  $("whoBtn").onclick = openWho;
+
+  async function startProfile(id){
+    const pf = getProfiles().find(x => x.id === id); if (!pf) return;
+    PID = id;
+    settings = { goal: 2200, proteinGoal: null, profile: null, plan: null };
+    history = { days: {} }; foods = { items: [] }; weights = { entries: [] }; pending = null;
+    current = today0();
+    ["tSex","tAge","tWeight","tFt","tIn","tBf","tAct","tTrain","tGoal","tGoalText","tDate","tTargetW","tPrefs","tNow","tPeak","tStruggle"].forEach(f => { const e = $(f); if (e && e.tagName !== "SELECT") e.value = ""; });
+    $("tAct").value = "1.375"; $("tTrain").value = "4"; $("tGoal").value = "cut"; $("tSex").value = "male";
+    $("plan").hidden = true;
+    const b = $("whoBtn"); b.textContent = pf.name.charAt(0).toUpperCase(); b.style.color = pf.color; b.style.borderColor = pf.color; b.title = pf.name;
     const [st, h, f, w] = await Promise.all([load("settings"), load("history"), load("foods"), load("weights")]);
     if (w && Array.isArray(w.entries)) weights = w;
     if (st) settings = { ...settings, ...st };
     if (h && h.days) history = h;
     if (f && Array.isArray(f.items)) foods = f;
+    $("who").hidden = true;
+    show("today");
     await loadDay();
-    if (view !== "today") show(view);
-  })();
+  }
+
+  // ---------- boot ----------
+  openWho();
 })();
 </script>
 <script>
