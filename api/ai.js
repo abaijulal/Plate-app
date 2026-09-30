@@ -1,5 +1,9 @@
 import { checkPasscode } from "./_auth.js";
 
+// Longer answers (like "Build my plan") can take a while when the model thinks first.
+// Without this, Vercel may cut the function off after ~10 seconds.
+export const config = { maxDuration: 60 };
+
 const SYSTEM =
   "You are the nutrition engine for Plate, a personal calorie and fitness tracking app. " +
   "Only handle food identification, nutrition estimates, nutrition labels, barcodes and diet/fitness planning. " +
@@ -66,8 +70,8 @@ export default async function handler(req, res) {
 // ---- Google Gemini ----
 async function gemini({ apiKey, prompt, image, type, fast, res }) {
   const model = fast
-    ? process.env.GEMINI_FAST_MODEL || process.env.GEMINI_MODEL || "gemini-2.5-flash"
-    : process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    ? process.env.GEMINI_FAST_MODEL || process.env.GEMINI_MODEL || "gemini-3.5-flash"
+    : process.env.GEMINI_MODEL || "gemini-3.5-flash";
   const parts = [];
   if (image) parts.push({ inline_data: { mime_type: type, data: image } });
   parts.push({ text: prompt });
@@ -80,7 +84,7 @@ async function gemini({ apiKey, prompt, image, type, fast, res }) {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM }] },
         contents: [{ role: "user", parts }],
-        generationConfig: { responseMimeType: "application/json", maxOutputTokens: 8192 },
+        generationConfig: { responseMimeType: "application/json", maxOutputTokens: 16384 },
       }),
     });
   } catch (e) {
@@ -93,7 +97,11 @@ async function gemini({ apiKey, prompt, image, type, fast, res }) {
     return res.status(502).json({ error: r.status === 400 ? "image_rejected" : "upstream_error" });
   }
   const data = await r.json();
-  const text = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("\n").trim();
-  if (!text) return res.status(502).json({ error: "empty_completion" });
+  const cand = data.candidates?.[0];
+  const text = (cand?.content?.parts || []).filter(p => !p.thought).map(p => p.text || "").join("\n").trim();
+  if (!text) {
+    console.error("Gemini returned no text", JSON.stringify({ finishReason: cand?.finishReason, usage: data.usageMetadata, block: data.promptFeedback }));
+    return res.status(502).json({ error: "empty_completion" });
+  }
   return res.status(200).json({ text });
 }
