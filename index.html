@@ -62,7 +62,7 @@ h2.sec{font-family:var(--display); font-weight:700; font-size:1.2rem; margin:26p
 /* hero */
 .hero{display:flex; flex-direction:column; align-items:center; padding:24px 0 4px}
 .shutter{position:relative; width:min(74vw,270px); aspect-ratio:1; border:0; background:none; padding:0; border-radius:50%}
-.shutter svg{position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg)}
+.shutter > svg{position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg)}
 .shutter .track{stroke:var(--ring-track)}
 .shutter .prog{stroke:var(--ring); transition:stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1), stroke .3s}
 .shutter .ptrack{stroke:transparent}
@@ -184,6 +184,68 @@ textarea{resize:vertical; min-height:64px}
 .sr{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap}
 @media (max-width:400px){ .grid3{grid-template-columns:1fr 1fr} .plan .nums b{font-size:1.3rem} }
 @media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important} }
+</style>
+<!-- Plate neon theme: paste this right before </head> in index.html -->
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<style id="neon-theme">
+:root, :root:not([data-theme="light"]), :root[data-theme="dark"]{
+  --bg:#07070D; --surface:#0F0F19; --ink:#EEECFF; --muted:#8C89AE; --line:#23223A;
+  --ring:#27E8FF; --ring-track:#191930; --over:#FF3D7F; --pro:#FF4FD8;
+  --btn:#27E8FF; --btn-ink:#06060C;
+  --display:"Unbounded", "Avenir Next", system-ui, sans-serif;
+  --body:"Manrope", "Segoe UI", system-ui, sans-serif;
+  color-scheme:dark;
+}
+body{
+  background:
+    radial-gradient(60rem 40rem at -10% -10%, rgba(39,232,255,.10), transparent 60%),
+    radial-gradient(50rem 40rem at 110% 110%, rgba(255,79,216,.10), transparent 60%),
+    var(--bg);
+  background-attachment:fixed;
+}
+.brand{font-weight:800; letter-spacing:.02em; text-shadow:0 0 18px rgba(39,232,255,.55)}
+
+/* tabs */
+.tabs{background:var(--surface); border:1px solid var(--line)}
+.tab[aria-selected="true"]{background:rgba(39,232,255,.12); color:var(--ring); box-shadow:inset 0 0 0 1px rgba(39,232,255,.45), 0 0 16px rgba(39,232,255,.25)}
+
+/* the ring */
+.shutter > svg{overflow:visible}
+.shutter .prog{filter:drop-shadow(0 0 6px var(--ring)) drop-shadow(0 0 14px rgba(39,232,255,.6))}
+.shutter.over .prog{filter:drop-shadow(0 0 6px var(--over)) drop-shadow(0 0 14px rgba(255,61,127,.6))}
+.shutter .pprog{filter:drop-shadow(0 0 5px var(--pro))}
+.lens{background:radial-gradient(circle at 50% 35%, #15152A, #08080F 70%); color:var(--ink); box-shadow:inset 0 0 0 1px rgba(39,232,255,.35), inset 0 0 40px rgba(39,232,255,.12), 0 0 40px rgba(39,232,255,.12)}
+.lens .big{text-shadow:0 0 20px rgba(39,232,255,.6)}
+.lens .cam{color:var(--ring)}
+.macros .p b{text-shadow:0 0 10px rgba(255,79,216,.6)}
+
+/* cards & inputs */
+.act, .sheet, .stat, .chart, .form{background:rgba(15,15,25,.8); border-color:var(--line); backdrop-filter:blur(6px)}
+.act:hover{border-color:var(--ring); box-shadow:0 0 18px rgba(39,232,255,.25); color:var(--ring)}
+textarea, input[type=text], input[type=number], input[type=search], input[type=password], select{background:#0A0A13; border-color:var(--line)}
+textarea:focus, input:focus, select:focus{outline:none; border-color:var(--ring); box-shadow:0 0 0 3px rgba(39,232,255,.18)}
+:focus-visible{outline-color:var(--ring)}
+
+/* buttons */
+.btn{box-shadow:0 0 18px rgba(39,232,255,.35); font-family:var(--display); font-weight:700; font-size:.88rem; letter-spacing:.02em}
+.btn:hover{box-shadow:0 0 26px rgba(39,232,255,.55)}
+.btn.ghost{box-shadow:none}
+.btn.ghost:hover{border-color:var(--ring); color:var(--ring)}
+
+/* numbers */
+.k, .stat b, .total{font-weight:700}
+.stat b{color:var(--ring); text-shadow:0 0 12px rgba(39,232,255,.45)}
+.dayrow .dp, .item .pt{color:var(--pro)}
+
+/* plan card */
+.plan{background:linear-gradient(160deg, rgba(39,232,255,.10), rgba(255,79,216,.10)), var(--surface); color:var(--ink); border:1px solid rgba(39,232,255,.35); box-shadow:0 0 30px rgba(39,232,255,.12)}
+.plan .nums b{color:var(--ring); text-shadow:0 0 14px rgba(39,232,255,.5)}
+.plan .btn{background:var(--btn); color:var(--btn-ink)}
+.plan .btn.ghost{background:none; color:var(--ink); border-color:var(--line)}
+.feas{background:rgba(255,79,216,.15); color:var(--pro); box-shadow:inset 0 0 0 1px rgba(255,79,216,.5)}
+.checks li{border-top-color:var(--line)}
+.chip{background:var(--surface); border-color:rgba(255,79,216,.45); box-shadow:0 0 14px rgba(255,79,216,.2)}
+.chip .dd{color:var(--pro)}
 </style>
 </head>
 <body>
@@ -651,7 +713,7 @@ textarea{resize:vertical; min-height:64px}
     refused: "Claude couldn't handle this one. Try a clearer photo or describe it.",
     invalid_json: "The answer came back garbled. Try again.",
     session_expired: "Sign in again, then retry."
-  })[code] || "Something went wrong reaching Claude. Try again.";
+  })[code] || "Something went wrong reaching the AI. Try again.";
   const cleanItem = i => ({ name: String(i.name || "Item").slice(0,60), portion: String(i.portion || i.serving || "").slice(0,60),
     calories: Math.max(0, Math.round(+i.calories || 0)), protein_g: +i.protein_g || 0, carbs_g: +i.carbs_g || 0, fat_g: +i.fat_g || 0 });
 
