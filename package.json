@@ -1,0 +1,11 @@
+{
+  "name": "plate-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Photo calorie tracker PWA powered by Claude",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "engines": { "node": ">=18" }
+}
