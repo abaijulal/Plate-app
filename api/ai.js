@@ -80,7 +80,7 @@ async function gemini({ apiKey, prompt, image, type, fast, res }) {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: SYSTEM }] },
         contents: [{ role: "user", parts }],
-        generationConfig: { responseMimeType: "application/json", maxOutputTokens: 2048 },
+        generationConfig: { responseMimeType: "application/json", maxOutputTokens: 8192 },
       }),
     });
   } catch (e) {
