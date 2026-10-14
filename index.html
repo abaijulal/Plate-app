@@ -492,12 +492,25 @@ textarea:focus, input:focus, select:focus{outline:none; border-color:var(--ring)
     if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b+1)); } catch {} }
     throw { code: "invalid_json", text };
   }
+  // Retries once on flaky-network / server hiccups (the server also retries the AI itself).
   async function api(path, init, retried){
+    for (let attempt = 0; ; attempt++) {
+      try { return await apiOnce(path, init, retried); }
+      catch (e) {
+        const transient = e && ["offline", "timeout", "upstream_error", "empty_completion"].includes(e.code);
+        if (!transient || attempt >= 1 || (e.code === "offline" && !navigator.onLine)) throw e;
+        await new Promise(r => setTimeout(r, 1500));
+      }
+    }
+  }
+  async function apiOnce(path, init, retried){
     let r;
-    try { r = await fetch(path, { ...init, headers: { ...(init && init.headers || {}), "x-app-passcode": getPass() } }); }
-    catch { throw { code: "offline" }; }
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 65000);
+    try { r = await fetch(path, { ...init, signal: ctl.signal, headers: { ...(init && init.headers || {}), "x-app-passcode": getPass() } }); }
+    catch (e) { throw { code: e && e.name === "AbortError" ? "timeout" : "offline" }; }
+    finally { clearTimeout(timer); }
     if (r.status === 401) {
-      if (!retried) { const p = window.prompt("Enter your Plate passcode"); if (p) { setPass(p.trim()); return api(path, init, true); } }
+      if (!retried) { const p = window.prompt("Enter your Plate passcode"); if (p) { setPass(p.trim()); return apiOnce(path, init, true); } }
       throw { code: "passcode" };
     }
     if (r.status === 429) throw { code: "rate_limited" };
@@ -733,6 +746,8 @@ textarea:focus, input:focus, select:focus{outline:none; border-color:var(--ring)
   }
   const copyFor = code => ({
     passcode: "Wrong or missing passcode. Set it in Targets → App settings.",
+    timeout: "That took too long. Try again in a moment.",
+    empty_completion: "The AI sent back an empty answer. Try again.",
     offline: "You're offline. Saved foods still work; photo estimates need a connection.",
     missing_key: "The server has no ANTHROPIC_API_KEY set. Add it in your Vercel project settings.",
     rate_limited: "Too many requests in a row or usage limit reached. Wait a bit, then try again.",
